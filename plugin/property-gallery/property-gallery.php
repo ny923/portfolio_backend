@@ -58,7 +58,6 @@ class Property_Gallery_Meta_Box
 
   public function render_meta_box($post)
   {
-    // 保存されたデータを取得
     $gallery_data = get_post_meta($post->ID, '_property_images', true) ?: array();
     wp_nonce_field('property_gallery_save', 'property_gallery_nonce');
 ?>

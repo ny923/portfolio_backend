@@ -71,7 +71,7 @@ logger.addHandler(handler)
 
 
 # ==============================
-# 新規追加: 緯度経度変換ロジック
+# 緯度経度変換ロジック
 # ==============================
 def convert_ielove_coord(coord_str):
     """
@@ -115,29 +115,20 @@ def convert_ielove_coord(coord_str):
 # ==============================
 def validate_row(row):
     """
-    HOME'S CSV仕様書(Ver.4.3.0)の「■(必須)」「～以外はエラー」を網羅した判定
+    行のバリデーション。現行では状態(6)が1以外なら非掲載とし、
+    物件番号(1)が空なら必須エラーとする。
+    （HOME'S CSV仕様書(Ver.4.3.0)に基づく厳格なチェックは未実装）
     """
     # インデックス定義 (CSV No - 1)
     IDX_ID = 0      # 物件番号(1)
     IDX_STATE = 5   # 状態(6)
-
-    # 厳格ver
-    # IDX = {
-    #     "ID": 0, "PUB_FLAG": 3, "OWN_FLAG": 4, "STATE": 5, "TYPE": 6,
-    #     "NAME": 9, "ZIP": 15, "ADDR": 17,
-    #     "LINE": 21, "STATION": 22, "WALK": 25,
-    #     "LAND_USE": 33, "ZONING": 34, "URBAN_PLAN": 35, "LAND_AREA": 38,
-    #     "RIGHTS": 67, "STRUCTURE": 70, "BUILD_AREA": 72, "FLOORS": 76, "DATE": 78,
-    #     "ADMIN_TYPE": 80, "ADMIN_FORM": 81,
-    #     "PRICE": 138, "GENKYO": 183, "DELIVERY": 184, "CONFIRM_NO": 254
-    # }
 
     try:
         def is_empty(val):
             v = str(val).strip().lower()
             return v in ["", "nan", "none", "*"]
 
-        # --- 【追加】状態(6) のチェック ---
+        # --- 状態(6) のチェック ---
         # 1以外は全て非掲載とする（WordPress用CSVに含めない）
         state_val = str(row[IDX_STATE]).strip()
         if state_val != "1":
@@ -146,61 +137,6 @@ def validate_row(row):
         # --- 必須チェック2: 物件番号(1) ---
         if is_empty(row[IDX_ID]):
             return "ERR_REQUIRED", "物件番号(1)が空です"
-
-        # 以下厳格verのロジック参考
-        # p_type = str(row[IDX["TYPE"]]).strip()
-
-        # 1. 絶対必須項目 (■マーク項目)
-        # must_items = [
-        #     (IDX["ID"], "物件番号(1)"),
-        #     (IDX["PUB_FLAG"], "公開可否(4)"),
-        #     (IDX["STATE"], "状態(6)"),
-        #     (IDX["TYPE"], "物件種別(7)"),
-        #     (IDX["NAME"], "物件名(10)"),
-        #     (IDX["ZIP"], "郵便番号(16)"),
-        #     (IDX["ADDR"], "所在地名称(18)"),
-        #     (IDX["PRICE"], "価格(139)")
-        # ]
-
-        # for idx, label in must_items:
-        #     if is_empty(row[idx]):
-        #         return "ERR_REQUIRED", f"{label}は必須です"
-
-        # 2. 交通の整合性 (一つでもあれば他も必須)
-        # if not is_empty(row[IDX["LINE"]]) or not is_empty(row[IDX["STATION"]]):
-        #     if is_empty(row[IDX["LINE"]]): return "ERR_TYPE", "路線名(22)が未入力です"
-        #     if is_empty(row[IDX["STATION"]]): return "ERR_TYPE", "駅名(23)が未入力です"
-        #     if is_empty(row[IDX["WALK"]]): return "ERR_TYPE", "徒歩距離(26)が未入力です"
-
-        # 3. 物件種別ごとの詳細バリデーション
-        # 土地 (11xx)
-        # if p_type.startswith('11'):
-        #     if is_empty(row[IDX["LAND_USE"]]): return "ERR_REQUIRED", "地目(34)は必須です"
-        #     if is_empty(row[IDX["ZONING"]]): return "ERR_REQUIRED", "用途地域(35)は必須です"
-        #     if is_empty(row[IDX["URBAN_PLAN"]]): return "ERR_REQUIRED", "都市計画(36)は必須です"
-        #     if is_empty(row[IDX["LAND_AREA"]]): return "ERR_REQUIRED", "土地面積(39)は必須です"
-        #     if is_empty(row[IDX["RIGHTS"]]): return "ERR_REQUIRED", "土地権利(68)は必須です"
-
-        # 建物系 (12xx:戸建, 13xx:マンション, 14xx/15xx:店舗等)
-        # elif p_type.startswith(('12', '13', '14', '15')):
-        #     if is_empty(row[IDX["STRUCTURE"]]): return "ERR_REQUIRED", "建物構造(71)は必須です"
-        #     if is_empty(row[IDX["BUILD_AREA"]]): return "ERR_REQUIRED", "建物/専有面積(73)は必須です"
-        #     if is_empty(row[IDX["DATE"]]): return "ERR_REQUIRED", "築年月(79)は必須です"
-        #     if is_empty(row[IDX["ADMIN_TYPE"]]): return "ERR_REQUIRED", "管理人(81)は必須です"
-        #     if is_empty(row[IDX["ADMIN_FORM"]]): return "ERR_REQUIRED", "管理形態(82)は必須です"
-
-            # 新築戸建(1201)の特有ルール
-            # if p_type == "1201":
-            #     if is_empty(row[IDX["CONFIRM_NO"]]):
-            #         return "ERR_REQUIRED", "新築戸建は建築確認番号(255)が必須です"
-
-        # 4. 論理チェック (現況と引渡)
-        # genkyo = str(row[IDX["GENKYO"]]).strip()
-        # delivery = str(row[IDX["DELIVERY"]]).strip()
-        # 建物系で 現況が 居住中(1), 賃貸中(3), 未完成(4) の場合
-        # if p_type.startswith(('12', '13', '14', '15')) and genkyo in ['1', '3', '4']:
-        #     if delivery == '1': # 即時(1)はエラー
-        #         return "ERR_CRITICAL", f"現況({genkyo})に対し引渡'即時'は選択不可です(No.185)"
 
         return "SUCCESS", ""
     except Exception as e:
@@ -244,7 +180,7 @@ def process_csv_and_log(local_csv_path, local_log_path, wp_csv_path):
             # 物件番号の取得（ログ用）
             bukken_id = str(row[0]).strip() if not pd.isna(row[0]) else "Unknown"
             
-            # --- 【追加】 緯度経度の変換処理 (20番目の列 = U列) ---
+            # --- 緯度経度の変換処理 (20番目の列 = U列) ---
             raw_coord = str(row[20]).strip() if not pd.isna(row[20]) else ""
             if raw_coord:
                 converted_coord = convert_ielove_coord(raw_coord)
@@ -324,7 +260,7 @@ def trigger_custom_import():
         logger.info("自作プラグインによるインポートを開始します...")
         logger.info(f"URL: {WP_CUSTOM_TRIGGER_URL}")
 
-        response = requests.get(WP_CUSTOM_TRIGGER_URL, timeout=100) # 30
+        response = requests.get(WP_CUSTOM_TRIGGER_URL, timeout=100)
 
         if response.status_code == 200:
             logger.info(f"インポート成功: {response.text}")
@@ -395,7 +331,6 @@ def main():
                     ftp.cwd(REMOTE_LOG_DIR) # logディレクトリへ
                     with open(local_log, 'rb') as f:
                         ftp.storbinary(f"STOR {report_filename}", f)
-                    # logger.info(f"報告用ログFTP送信完了: {REMOTE_LOG_DIR}/{report_filename}")
                     logger.info(f"報告用ログFTP送信完了")
                     
                     # 元のディレクトリ(sale)に戻る
@@ -421,7 +356,6 @@ def main():
                     os.makedirs(WP_IMPORT_DIR)
                 extract_zip_images(local_zip_path, WP_IMPORT_DIR)
 
-        # 修正の間コメントアウト
         # 4. FTP上のファイル削除
         # csv_processed が True（成功）の場合のみ削除を実行する
         if csv_processed:
