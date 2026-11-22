@@ -88,7 +88,7 @@ function sci_run_import($request)
         return new WP_Error('file_error', 'Could not open CSV', array('status' => 500));
     }
 
-    // 変換マップ外部ファイルから読む 物件種別 設備のみ
+    // 変換マップを外部ファイルから読み込む
     $mapping_data = include plugin_dir_path(__FILE__) . 'mapping-data.php';
     $type_map = $mapping_data['type_map'];
     $map_flag = $mapping_data['map_flag'];
@@ -230,7 +230,7 @@ function sci_run_import($request)
         $reform_done_exterior = formatJapaneseDate($data[406]);
         $room_count = trim($data[87]); // 間取り 部屋数 88
         $raw_floor_type = trim($data[88]); // タイプ 89
-        // タイプを文字に変換（50 → LDK
+        // タイプを文字に変換（例：50 → LDK）
         $floor_str = isset($floor_type_map[$raw_floor_type]) ? $floor_type_map[$raw_floor_type] : $raw_floor_type;
         $floor = $room_count . $floor_str;
 
@@ -251,7 +251,6 @@ function sci_run_import($request)
         $remark  = $data[133]; // 備考 134
         $price   = trim($data[138]); // 価格 139
         // 駐車場料金178 駐車場区分180 駐車場距離181 駐車場空き台数182 駐車場備考183
-        // $parking = '料金' . $data[177] . '　区分' . $data[179] . '　距離' . $data[180] . '　空き台数' . $data[181] . '　備考' . $data[182];
         $parking_type = trim($data[179]); //有 ｶｰｽﾍﾟｰｽ 位にする
         $parking = isset($map_parking[$parking_type]) ? $map_parking[$parking_type] : $parking_type . '　' . $data[182];
 
@@ -470,7 +469,7 @@ function sci_run_import($request)
                 $term = wp_insert_term($city_name, $area_taxonomy);
             }
 
-            // 物件（投稿）にエリアを紐付け（falseで既存の紐付けを上書きしない設定）
+            // 物件（投稿）にエリアを紐付け（true＝既存の紐付けを残して追加）
             if (!is_wp_error($term)) {
                 $term_id = is_array($term) ? $term['term_id'] : $term;
                 wp_set_object_terms($post_id, (int)$term_id, $area_taxonomy, true);
@@ -485,8 +484,8 @@ function sci_run_import($request)
             'マンション' => 'mansion',
             '新築戸建'   => 'new-house',
             '中古戸建'   => 'used-house',
-            '一般公開物件' => 'public-property', // ★これを追加
-            '会員限定物件' => 'members-property',      // ★ついでにこちらも推奨
+            '一般公開物件' => 'public-property',
+            '会員限定物件' => 'members-property',
         ];
 
         // 割り当てるカテゴリー名の配列を作成
@@ -554,7 +553,7 @@ function sci_run_import($request)
         require_once(ABSPATH . 'wp-admin/includes/file.php');
         require_once(ABSPATH . 'wp-admin/includes/media.php');
 
-        // ★修正：既存のギャラリー画像を取得しておく（消さないためのベース）
+        // 既存のギャラリー画像を取得しておく（消さないためのベース）
         $gallery_images = get_post_meta($post_id, '_property_images', true) ?: [];
 
         // 重複チェック用に現在のIDリストを作成
@@ -625,7 +624,7 @@ function sci_run_import($request)
                     if ($i === 224) set_post_thumbnail($post_id, $attach_id);
                     if ($i === 228) $madori_attach_id = $attach_id;
 
-                    // ★修正：重複して追加されないようにチェック
+                    // 重複して追加されないようにチェック
                     $already_in_gallery = false;
                     foreach ($gallery_images as $idx => $item) {
                         if ($item['id'] == $attach_id) {
@@ -801,7 +800,7 @@ function sci_run_import($request)
     fclose($handle);
 
     // ==========================================
-    // ★ 追加：取り下げ処理（CSVにない物件を非公開にする）
+    // 取り下げ処理（CSVにない物件を非公開にする）
     // ==========================================
     if (!empty($processed_property_ids)) {
         // 現在「公開中」の全ての物件を取得
